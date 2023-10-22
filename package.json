@@ -17,6 +17,8 @@
   "author": "GitHub",
   "license": "CC0-1.0",
   "devDependencies": {
-    "electron": "^26.3.0"
+    "electron": "^26.3.0",
+    "esbuild": "^0.19.5",
+    "jsdom": "^22.1.0"
   }
 }
