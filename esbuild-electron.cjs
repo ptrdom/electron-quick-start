@@ -222,42 +222,75 @@ const electronServe = async (reloadEventEmitterPromise) => {
 
   let electronProcess = null;
   const spawnElectronProcess = () => {
-    electronProcess = spawn(electron, ["."], { stdio: "inherit" })
+    electronProcess = spawn(electron, ["."], { stdio: "inherit" });
+    electronProcess.on('exit', (code) => {
+      if (code === 0) {
+        process.exit();
+      }
+    });
   };
 
-  const plugins = [{
-    name: 'renderer-reload-plugin',
-    setup(build) {
-      build.onEnd(() => {
-        // TODO reload on preload rebuild
-        reloadEventEmitter.emit('reload');
+  await (async function () {
+    //TODO consider building main and preload process separately
+    const plugins = [{
+      name: 'renderer-reload-plugin',
+      setup(build) {
+        build.onEnd(() => {
+          reloadEventEmitter.emit('reload');
+        });
+      },
+    }];
 
-        // TODO re-spawn on main rebuild
-        if (electronProcess) {
-          electronProcess.kill();
-          electronProcess = null;
-          spawnElectronProcess();
-        }
-      });
-    },
-  }];
+    const ctx = await esbuild.context({
+      entryPoints: ['./preload.js'],
+      bundle: true,
+      outdir: './out',
+      logOverride: {
+        'equals-negative-zero': 'silent',
+      },
+      logLevel: "info",
+      entryNames: '[name]',
+      assetNames: '[name]',
+      plugins: plugins,
+      platform: 'node',
+      external: ['electron'],
+    });
 
-  const ctx  = await esbuild.context({
-    entryPoints: ['./main.js', './preload.js'],
-    bundle: true,
-    outdir: './out',
-    logOverride: {
-      'equals-negative-zero': 'silent',
-    },
-    logLevel: "info",
-    entryNames: '[name]',
-    assetNames: '[name]',
-    plugins: plugins,
-    platform: 'node',
-    external: ['electron'],
-  });
+    ctx.watch();
+  })();
 
-  ctx.watch();
+  await (async function () {
+    //TODO consider building main and preload process separately
+    const plugins = [{
+      name: 'main-reload-plugin',
+      setup(build) {
+        build.onEnd(() => {
+          if (electronProcess) {
+            electronProcess.kill();
+            electronProcess = null;
+            spawnElectronProcess();
+          }
+        });
+      },
+    }];
+
+    const ctx = await esbuild.context({
+      entryPoints: ['./main.js'],
+      bundle: true,
+      outdir: './out',
+      logOverride: {
+        'equals-negative-zero': 'silent',
+      },
+      logLevel: "info",
+      entryNames: '[name]',
+      assetNames: '[name]',
+      plugins: plugins,
+      platform: 'node',
+      external: ['electron'],
+    });
+
+    ctx.watch();
+  })();
 
   Object.assign(process.env, {
     DEV_SERVER_URL: "http://localhost:8000",

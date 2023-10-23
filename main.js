@@ -3,8 +3,6 @@ const { app, BrowserWindow } = require('electron')
 const path = require('node:path')
 
 function createWindow () {
-  console.log('DEV_SERVER_URL', process.env.DEV_SERVER_URL)
-  console.log('__dirname', __dirname)
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 800,
