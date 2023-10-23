@@ -5,6 +5,7 @@ const jsdom = require("jsdom")
 const { JSDOM } = jsdom;
 const fs = require('fs');
 const path = require('path');
+const EventEmitter = require('events');
 
 const htmlTransform = (htmlString, outDirectory, meta) => {
   if (!meta.outputs) {
@@ -48,11 +49,12 @@ const esbuildLiveReload = (htmlString) => {
     .replace("</head>", `
       <script type="text/javascript">
         // Based on https://esbuild.github.io/api/#live-reload
-        new EventSource('/esbuild').addEventListener('change', e => {
+        const eventSource = new EventSource('/esbuild');
+        eventSource.addEventListener('change', e => {
           const { added, removed, updated } = JSON.parse(e.data)
 
           if (!added.length && !removed.length && updated.length === 1) {
-            for (const link of document.getElementsByTagName("link")) {
+            for (const link of document.getElementsByTagName('link')) {
               const url = new URL(link.href)
 
               if (url.host === location.host && url.pathname === updated[0]) {
@@ -66,7 +68,10 @@ const esbuildLiveReload = (htmlString) => {
           }
 
           location.reload()
-        })
+        });
+        eventSource.addEventListener('reload', e => {
+          location.reload();
+        });
       </script>
     </head>
     `);
@@ -75,11 +80,13 @@ const esbuildLiveReload = (htmlString) => {
 const serve = async () => {
     // Start esbuild's local web server. Random port will be chosen by esbuild.
 
+    const reloadEventEmitter = new EventEmitter();
+
     const plugins = [{
       name: 'metafile-plugin',
       setup(build) {
         build.onEnd(result => {
-          const metafileName = 'meta.json';
+          const metafileName = 'esbuild-electron-renderer-meta.json';
           if (!result.metafile) {
             console.warn("Metafile missing in build result")
             fs.writeFileSync(metafileName, '{}');
@@ -115,7 +122,7 @@ const serve = async () => {
 
     // Create a second (proxy) server that will forward requests to esbuild.
     const proxy = http.createServer((req, res) => {
-        const metaPath = path.join(__dirname, 'meta.json');
+        const metaPath = path.join(__dirname, 'esbuild-electron-renderer-meta.json');
         let meta;
         try {
           meta = JSON.parse(fs.readFileSync(metaPath));
@@ -173,6 +180,16 @@ const serve = async () => {
 
                 // Otherwise esbuild handled it like a champ, so proxy the response back.
                 res.writeHead(proxyRes.statusCode, proxyRes.headers);
+
+                if (req.method === 'GET' && req.url === '/esbuild' && req.headers.accept === 'text/event-stream') {
+                  const reloadCallback = () => {
+                    res.write('event: reload\ndata: reload\n\n');
+                  };
+                  reloadEventEmitter.on('reload', reloadCallback);
+                  res.on('close', () => {
+                    reloadEventEmitter.removeListener('reload', reloadCallback);
+                  });
+                }
                 proxyRes.pipe(res, { end: true });
               });
 
@@ -194,4 +211,6 @@ const serve = async () => {
 // Serves all content from /Users/domantas/IdeaProjects/open-source/scalajs-esbuild/sbt-scalajs-esbuild-web/src/sbt-test/sbt-scalajs-esbuild-web/multiple-entry-points/target/scala-2.13/esbuild/main/www on :8000.
 // If esbuild 404s the request, the request is attempted again
 // from `/` assuming that it's an SPA route needing to be handled by the root bundle.
-serve();
+
+// TODO emit main/preload rebuilds here
+const reloadEventEmitter = serve();

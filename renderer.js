@@ -5,6 +5,9 @@
  * `contextIsolation` is turned on. Use the contextBridge API in `preload.js`
  * to expose Node.js functionality from the main process.
  */
+
+import './styles.css';
+
 const p = document.createElement('p');
 p.innerText = 'renderer script works!'
 document.body.append(p);

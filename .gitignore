@@ -2,4 +2,4 @@ node_modules
 
 .idea
 www
-meta.json
+esbuild-electron-renderer-meta.json
