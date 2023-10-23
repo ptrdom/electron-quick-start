@@ -3,3 +3,4 @@ node_modules
 .idea
 www
 esbuild-electron-renderer-meta.json
+out

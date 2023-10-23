@@ -6,6 +6,8 @@ const { JSDOM } = jsdom;
 const fs = require('fs');
 const path = require('path');
 const EventEmitter = require('events');
+const { spawn } = require('node:child_process');
+const electron = require('electron')
 
 const htmlTransform = (htmlString, outDirectory, meta) => {
   if (!meta.outputs) {
@@ -77,7 +79,7 @@ const esbuildLiveReload = (htmlString) => {
     `);
 }
 
-const serve = async () => {
+const rendererServe = async () => {
     // Start esbuild's local web server. Random port will be chosen by esbuild.
 
     const reloadEventEmitter = new EventEmitter();
@@ -206,11 +208,65 @@ const serve = async () => {
     proxy.listen(8000);
 
     console.log("Started esbuild serve process [http://localhost:8000]");
+
+    return reloadEventEmitter;
 };
 
 // Serves all content from /Users/domantas/IdeaProjects/open-source/scalajs-esbuild/sbt-scalajs-esbuild-web/src/sbt-test/sbt-scalajs-esbuild-web/multiple-entry-points/target/scala-2.13/esbuild/main/www on :8000.
 // If esbuild 404s the request, the request is attempted again
 // from `/` assuming that it's an SPA route needing to be handled by the root bundle.
 
-// TODO emit main/preload rebuilds here
-const reloadEventEmitter = serve();
+const electronServe = async (reloadEventEmitterPromise) => {
+
+  const reloadEventEmitter = await reloadEventEmitterPromise;
+
+  let electronProcess = null;
+  const spawnElectronProcess = () => {
+    electronProcess = spawn(electron, ["."], { stdio: "inherit" })
+  };
+
+  const plugins = [{
+    name: 'renderer-reload-plugin',
+    setup(build) {
+      build.onEnd(() => {
+        // TODO reload on preload rebuild
+        reloadEventEmitter.emit('reload');
+
+        // TODO re-spawn on main rebuild
+        if (electronProcess) {
+          electronProcess.kill();
+          electronProcess = null;
+          spawnElectronProcess();
+        }
+      });
+    },
+  }];
+
+  const ctx  = await esbuild.context({
+    entryPoints: ['./main.js', './preload.js'],
+    bundle: true,
+    outdir: './out',
+    logOverride: {
+      'equals-negative-zero': 'silent',
+    },
+    logLevel: "info",
+    entryNames: '[name]',
+    assetNames: '[name]',
+    plugins: plugins,
+    platform: 'node',
+    external: ['electron'],
+  });
+
+  ctx.watch();
+
+  Object.assign(process.env, {
+    DEV_SERVER_URL: "http://localhost:8000",
+  })
+
+  spawnElectronProcess();
+};
+
+rendererServe()
+  .then((reloadEventEmitter) => {
+    electronServe(reloadEventEmitter);
+  })

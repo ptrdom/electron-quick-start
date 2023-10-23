@@ -9,5 +9,5 @@
 import './styles.css';
 
 const p = document.createElement('p');
-p.innerText = 'renderer script works!'
+p.innerText = 'renderer script works!!!!'
 document.body.append(p);
