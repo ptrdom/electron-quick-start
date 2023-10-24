@@ -6,8 +6,12 @@
  * to expose Node.js functionality from the main process.
  */
 
+import { upperCase } from 'lodash';
+
 import './styles.css';
 
-const p = document.createElement('p');
-p.innerText = 'renderer script works!'
-document.body.append(p);
+window.addEventListener('DOMContentLoaded', () => {
+  const p = document.createElement('p');
+  p.innerText = upperCase('renderer script works!');
+  document.body.append(p);
+});

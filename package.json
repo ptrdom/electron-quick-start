@@ -2,7 +2,6 @@
   "name": "electron-quick-start",
   "version": "1.0.0",
   "description": "A minimal Electron application",
-  "main": "./out/main.js",
   "scripts": {
     "start": "electron ."
   },
@@ -17,8 +16,9 @@
   "author": "GitHub",
   "license": "CC0-1.0",
   "devDependencies": {
-    "electron": "^26.3.0",
-    "esbuild": "^0.19.5",
-    "jsdom": "^22.1.0"
+    "electron": "26.4.1",
+    "esbuild": "0.19.5",
+    "jsdom": "22.1.0",
+    "lodash": "4.17.21"
   }
 }

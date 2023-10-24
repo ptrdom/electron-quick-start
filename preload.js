@@ -5,6 +5,9 @@
  *
  * https://www.electronjs.org/docs/latest/tutorial/sandbox
  */
+
+const { upperCase } = require('lodash');
+
 window.addEventListener('DOMContentLoaded', () => {
   const replaceText = (selector, text) => {
     const element = document.getElementById(selector)
@@ -14,4 +17,10 @@ window.addEventListener('DOMContentLoaded', () => {
   for (const type of ['chrome', 'node', 'electron']) {
     replaceText(`${type}-version`, process.versions[type])
   }
+
+  console.log(process.versions);
+
+  const p = document.createElement('p');
+  p.innerText = upperCase('preload script works!')
+  document.body.append(p);
 })

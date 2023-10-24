@@ -71,7 +71,7 @@ const esbuildLiveReload = (htmlString) => {
 
           location.reload()
         });
-        eventSource.addEventListener('reload', e => {
+        eventSource.addEventListener('reload', () => {
           location.reload();
         });
       </script>
@@ -222,7 +222,7 @@ const electronServe = async (reloadEventEmitterPromise) => {
 
   let electronProcess = null;
   const spawnElectronProcess = () => {
-    electronProcess = spawn(electron, ["."], { stdio: "inherit" });
+    electronProcess = spawn(electron, ['./out/main.js', '.'], { stdio: 'inherit' });
     electronProcess.on('exit', (code) => {
       if (code === 0) {
         process.exit();
@@ -231,7 +231,6 @@ const electronServe = async (reloadEventEmitterPromise) => {
   };
 
   await (async function () {
-    //TODO consider building main and preload process separately
     const plugins = [{
       name: 'renderer-reload-plugin',
       setup(build) {
@@ -260,7 +259,6 @@ const electronServe = async (reloadEventEmitterPromise) => {
   })();
 
   await (async function () {
-    //TODO consider building main and preload process separately
     const plugins = [{
       name: 'main-reload-plugin',
       setup(build) {
@@ -302,4 +300,4 @@ const electronServe = async (reloadEventEmitterPromise) => {
 rendererServe()
   .then((reloadEventEmitter) => {
     electronServe(reloadEventEmitter);
-  })
+  });
