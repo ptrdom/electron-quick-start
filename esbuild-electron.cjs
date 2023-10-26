@@ -251,19 +251,17 @@ const electronServe = async (reloadEventEmitter) => {
       name: 'main-reload-plugin',
       setup(build) {
         let electronProcess = null;
-        let electronProcessCloseListener = null;
         build.onEnd(() => {
           if (electronProcess != null) {
-            electronProcess.removeListener('exit', electronProcessCloseListener);
-            electronProcess.kill();
-            electronProcessCloseListener = null;
+            electronProcess.handle.removeListener('exit', electronProcess.closeListener);
+            electronProcess.handle.kill();
             electronProcess = null;
           }
-          electronProcess = spawn(electron, ['./out/main.js', '.'], { stdio: 'inherit' });
-          electronProcessCloseListener = () => {
-            process.exit();
+          electronProcess = {
+            handle: spawn(electron, ['./out/main.js', '.'], { stdio: 'inherit' }),
+            closeListener: () => process.exit()
           };
-          electronProcess.on('exit', electronProcessCloseListener);
+          electronProcess.handle.on('exit', electronProcess.closeListener);
         });
       },
     }];
