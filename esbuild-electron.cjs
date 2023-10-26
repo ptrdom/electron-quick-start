@@ -221,13 +221,19 @@ const electronServe = async (reloadEventEmitterPromise) => {
   const reloadEventEmitter = await reloadEventEmitterPromise;
 
   let electronProcess = null;
+  let electronProcessCloseListener = null;
   const spawnElectronProcess = () => {
+    if (electronProcess != null) {
+      electronProcess.removeListener('exit', electronProcessCloseListener);
+      electronProcess.kill();
+      electronProcessCloseListener = null;
+      electronProcess = null;
+    }
     electronProcess = spawn(electron, ['./out/main.js', '.'], { stdio: 'inherit' });
-    electronProcess.on('exit', (code) => {
-      if (code === 0) {
-        process.exit();
-      }
-    });
+    electronProcessCloseListener = () => {
+      process.exit();
+    };
+    electronProcess.on('exit', electronProcessCloseListener);
   };
 
   await (async function () {
@@ -263,11 +269,7 @@ const electronServe = async (reloadEventEmitterPromise) => {
       name: 'main-reload-plugin',
       setup(build) {
         build.onEnd(() => {
-          if (electronProcess) {
-            electronProcess.kill();
-            electronProcess = null;
-            spawnElectronProcess();
-          }
+          spawnElectronProcess();
         });
       },
     }];
@@ -293,8 +295,6 @@ const electronServe = async (reloadEventEmitterPromise) => {
   Object.assign(process.env, {
     DEV_SERVER_URL: "http://localhost:8000",
   })
-
-  spawnElectronProcess();
 };
 
 rendererServe()
