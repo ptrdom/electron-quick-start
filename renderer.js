@@ -12,6 +12,6 @@ import './styles.css';
 
 window.addEventListener('DOMContentLoaded', () => {
   const p = document.createElement('p');
-  p.innerText = upperCase('renderer script works!');
+  p.innerText = `${upperCase('renderer script works')}!`;
   document.body.append(p);
 });

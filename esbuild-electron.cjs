@@ -216,9 +216,7 @@ const rendererServe = async () => {
 // If esbuild 404s the request, the request is attempted again
 // from `/` assuming that it's an SPA route needing to be handled by the root bundle.
 
-const electronServe = async (reloadEventEmitterPromise) => {
-
-  const reloadEventEmitter = await reloadEventEmitterPromise;
+const electronServe = async (reloadEventEmitter) => {
 
   let electronProcess = null;
   let electronProcessCloseListener = null;

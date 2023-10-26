@@ -21,6 +21,6 @@ window.addEventListener('DOMContentLoaded', () => {
   console.log(process.versions);
 
   const p = document.createElement('p');
-  p.innerText = upperCase('preload script works!')
+  p.innerText = `${upperCase('preload script works')}!`
   document.body.append(p);
 })
