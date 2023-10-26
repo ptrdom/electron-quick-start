@@ -218,22 +218,6 @@ const rendererServe = async () => {
 
 const electronServe = async (reloadEventEmitter) => {
 
-  let electronProcess = null;
-  let electronProcessCloseListener = null;
-  const spawnElectronProcess = () => {
-    if (electronProcess != null) {
-      electronProcess.removeListener('exit', electronProcessCloseListener);
-      electronProcess.kill();
-      electronProcessCloseListener = null;
-      electronProcess = null;
-    }
-    electronProcess = spawn(electron, ['./out/main.js', '.'], { stdio: 'inherit' });
-    electronProcessCloseListener = () => {
-      process.exit();
-    };
-    electronProcess.on('exit', electronProcessCloseListener);
-  };
-
   await (async function () {
     const plugins = [{
       name: 'renderer-reload-plugin',
@@ -266,8 +250,20 @@ const electronServe = async (reloadEventEmitter) => {
     const plugins = [{
       name: 'main-reload-plugin',
       setup(build) {
+        let electronProcess = null;
+        let electronProcessCloseListener = null;
         build.onEnd(() => {
-          spawnElectronProcess();
+          if (electronProcess != null) {
+            electronProcess.removeListener('exit', electronProcessCloseListener);
+            electronProcess.kill();
+            electronProcessCloseListener = null;
+            electronProcess = null;
+          }
+          electronProcess = spawn(electron, ['./out/main.js', '.'], { stdio: 'inherit' });
+          electronProcessCloseListener = () => {
+            process.exit();
+          };
+          electronProcess.on('exit', electronProcessCloseListener);
         });
       },
     }];
