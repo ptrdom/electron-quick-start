@@ -9,6 +9,17 @@ const EventEmitter = require('events');
 const { spawn } = require('node:child_process');
 const electron = require('electron')
 
+const mainEntryPoint = './main.js';
+const preloadEntryPoints = ['./preload.js'];
+const electronBuildOutputDirectory = './out';
+
+const rendererEntryPoints = ['./renderer.js'];
+const rendererHtmlEntryPoints = ['/index.html'];
+const rendererBuildOutputDirectory = './www';
+const rendererBuildServerProxyPort = 8000
+const rendererBuildServerPort = 8001
+const rendererBuildMetafileName = 'esbuild-electron-renderer-meta.json';
+
 const htmlTransform = (htmlString, outDirectory, meta) => {
   if (!meta.outputs) {
     throw new Error('Meta file missing output metadata');
@@ -80,29 +91,26 @@ const esbuildLiveReload = (htmlString) => {
 }
 
 const rendererServe = async () => {
-    // Start esbuild's local web server. Random port will be chosen by esbuild.
-
     const reloadEventEmitter = new EventEmitter();
 
     const plugins = [{
       name: 'metafile-plugin',
       setup(build) {
         build.onEnd(result => {
-          const metafileName = 'esbuild-electron-renderer-meta.json';
           if (!result.metafile) {
             console.warn("Metafile missing in build result")
-            fs.writeFileSync(metafileName, '{}');
+            fs.writeFileSync(rendererBuildMetafileName, '{}');
           } else {
-            fs.writeFileSync(metafileName, JSON.stringify(result.metafile));
+            fs.writeFileSync(rendererBuildMetafileName, JSON.stringify(result.metafile));
           }
         });
       },
     }];
 
     const ctx  = await esbuild.context({
-      entryPoints: ['./renderer.js'],
+      entryPoints: rendererEntryPoints,
       bundle: true,
-      outdir: './www',
+      outdir: rendererBuildOutputDirectory,
       loader: { '.png': 'file','.jpe?g': 'file','.jfif': 'file','.pjpeg': 'file','.pjp': 'file','.gif': 'file','.svg': 'file','.ico': 'file','.webp': 'file','.avif': 'file','.mp4': 'file','.webm': 'file','.ogg': 'file','.mp3': 'file','.wav': 'file','.flac': 'file','.aac': 'file','.woff2?': 'file','.eot': 'file','.ttf': 'file','.otf': 'file','.webmanifest': 'file','.pdf': 'file','.txt': 'file' },
       metafile: true,
       logOverride: {
@@ -118,13 +126,13 @@ const rendererServe = async () => {
     await ctx.watch()
 
     const { host, port } = await ctx.serve({
-        servedir: './www',
-        port: 8001
+        servedir: rendererBuildOutputDirectory,
+        port: rendererBuildServerPort
     });
 
     // Create a second (proxy) server that will forward requests to esbuild.
     const proxy = http.createServer((req, res) => {
-        const metaPath = path.join(__dirname, 'esbuild-electron-renderer-meta.json');
+        const metaPath = path.join(__dirname, rendererBuildMetafileName);
         let meta;
         try {
           meta = JSON.parse(fs.readFileSync(metaPath));
@@ -134,7 +142,6 @@ const rendererServe = async () => {
         }
 
         if (meta) {
-          // forwardRequest forwards an http request through to esbuid.
           const forwardRequest = (path) => {
               const options = {
                   hostname: host,
@@ -144,7 +151,7 @@ const rendererServe = async () => {
                   headers: req.headers,
               };
 
-          const multipleEntryPointsFound = false;
+          const multipleEntryPointsFound = rendererHtmlEntryPoints.length !== 1;
 
           if (multipleEntryPointsFound && path === "/") {
             res.writeHead(500);
@@ -153,7 +160,7 @@ const rendererServe = async () => {
             if (path === "/" || path.endsWith(".html")) {
               let file;
               if (path === "/") {
-                file = '/index.html';
+                file = rendererHtmlEntryPoints[0];
               } else {
                 file = path;
               }
@@ -163,7 +170,7 @@ const rendererServe = async () => {
               if (fs.existsSync(htmlFilePath)) {
                 try {
                   res.writeHead(200, {"Content-Type": "text/html"});
-                  res.end(htmlTransform(esbuildLiveReload(fs.readFileSync(htmlFilePath)), './www', meta));
+                  res.end(htmlTransform(esbuildLiveReload(fs.readFileSync(htmlFilePath)), rendererBuildOutputDirectory, meta));
                 } catch (error) {
                   res.writeHead(500);
                   res.end('Failed to transform html ['+error+']');
@@ -205,16 +212,12 @@ const rendererServe = async () => {
     });
 
     // Start our proxy server at the specified `listen` port.
-    proxy.listen(8000);
+    proxy.listen(rendererBuildServerProxyPort);
 
-    console.log("Started esbuild serve process [http://localhost:8000]");
+    console.log(`Started esbuild serve process [http://localhost:${rendererBuildServerProxyPort}]`);
 
     return reloadEventEmitter;
 };
-
-// Serves all content from /Users/domantas/IdeaProjects/open-source/scalajs-esbuild/sbt-scalajs-esbuild-web/src/sbt-test/sbt-scalajs-esbuild-web/multiple-entry-points/target/scala-2.13/esbuild/main/www on :8000.
-// If esbuild 404s the request, the request is attempted again
-// from `/` assuming that it's an SPA route needing to be handled by the root bundle.
 
 const electronServe = async (reloadEventEmitter) => {
 
@@ -229,9 +232,9 @@ const electronServe = async (reloadEventEmitter) => {
     }];
 
     const ctx = await esbuild.context({
-      entryPoints: ['./preload.js'],
+      entryPoints: preloadEntryPoints,
       bundle: true,
-      outdir: './out',
+      outdir: electronBuildOutputDirectory,
       logOverride: {
         'equals-negative-zero': 'silent',
       },
@@ -258,7 +261,7 @@ const electronServe = async (reloadEventEmitter) => {
             electronProcess = null;
           }
           electronProcess = {
-            handle: spawn(electron, ['./out/main.js', '.'], { stdio: 'inherit' }),
+            handle: spawn(electron, [path.join(electronBuildOutputDirectory, mainEntryPoint), '.'], { stdio: 'inherit' }),
             closeListener: () => process.exit()
           };
           electronProcess.handle.on('exit', electronProcess.closeListener);
@@ -267,9 +270,9 @@ const electronServe = async (reloadEventEmitter) => {
     }];
 
     const ctx = await esbuild.context({
-      entryPoints: ['./main.js'],
+      entryPoints: [mainEntryPoint],
       bundle: true,
-      outdir: './out',
+      outdir: electronBuildOutputDirectory,
       logOverride: {
         'equals-negative-zero': 'silent',
       },
@@ -285,7 +288,7 @@ const electronServe = async (reloadEventEmitter) => {
   })();
 
   Object.assign(process.env, {
-    DEV_SERVER_URL: "http://localhost:8000",
+    DEV_SERVER_URL: `http://localhost:${rendererBuildServerProxyPort}`,
   })
 };
 
