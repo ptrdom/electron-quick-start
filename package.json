@@ -19,7 +19,8 @@
     "electron": "26.4.1",
     "esbuild": "0.19.5",
     "jsdom": "22.1.0",
-    "lodash": "4.17.21"
+    "lodash": "4.17.21",
+    "playwright": "1.39.0"
   },
   "packageManager": "pnpm@8.9.2"
 }
