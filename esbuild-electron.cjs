@@ -9,17 +9,6 @@ const EventEmitter = require('events');
 const { spawn } = require('node:child_process');
 const electron = require('electron')
 
-const mainEntryPoint = './main.js';
-const preloadEntryPoints = ['./preload.js'];
-const electronBuildOutputDirectory = './out';
-
-const rendererEntryPoints = ['./renderer.js'];
-const rendererHtmlEntryPoints = ['/index.html'];
-const rendererBuildOutputDirectory = './www';
-const rendererBuildServerProxyPort = 8000
-const rendererBuildServerPort = 8001
-const rendererBuildMetafileName = 'esbuild-electron-renderer-meta.json';
-
 const htmlTransform = (htmlString, outDirectory, meta) => {
   if (!meta.outputs) {
     throw new Error('Meta file missing output metadata');
@@ -90,7 +79,7 @@ const esbuildLiveReload = (htmlString) => {
     `);
 }
 
-const rendererServe = async () => {
+const rendererServe = async (rendererEntryPoints, rendererHtmlEntryPoints, rendererBuildOutputDirectory, rendererBuildServerProxyPort, rendererBuildServerPort, rendererBuildMetafileName) => {
     const reloadEventEmitter = new EventEmitter();
 
     const plugins = [{
@@ -219,7 +208,7 @@ const rendererServe = async () => {
     return reloadEventEmitter;
 };
 
-const electronServe = async (reloadEventEmitter) => {
+const electronServe = async (reloadEventEmitter, rendererBuildServerProxyPort, mainEntryPoint, preloadEntryPoints, electronBuildOutputDirectory) => {
 
   await (async function () {
     const plugins = [{
@@ -292,7 +281,20 @@ const electronServe = async (reloadEventEmitter) => {
   })
 };
 
-rendererServe()
+rendererServe(
+  ['./renderer.js'],
+  ['/index.html'],
+  './www',
+  8000,
+  8001,
+  'esbuild-electron-renderer-meta.json'
+)
   .then((reloadEventEmitter) => {
-    electronServe(reloadEventEmitter);
+    electronServe(
+      reloadEventEmitter,
+      8000,
+      './main.js',
+      ['./preload.js'],
+      './out'
+    );
   });
