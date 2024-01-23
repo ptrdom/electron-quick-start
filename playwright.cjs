@@ -1,8 +1,9 @@
 const { _electron: electron } = require('playwright');
+const { join } = require("path");
 
 (async () => {
   // Launch Electron app.
-  const electronApp = await electron.launch({ args: ['main.js'] });
+  const electronApp = await electron.launch({ args: ['main.js', `--user-data-dir=${join(process.cwd(), "user-data")}`] });
 
   // Evaluation expression in the Electron context.
   const appPath = await electronApp.evaluate(async ({ app }) => {

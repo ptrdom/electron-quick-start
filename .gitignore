@@ -4,3 +4,6 @@ node_modules
 www
 esbuild-electron-renderer-meta.json
 out
+
+user-data
+intro.png
